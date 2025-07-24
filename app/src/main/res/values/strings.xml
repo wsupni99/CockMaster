@@ -21,6 +21,6 @@
     <string name="home_menu_title">Главная</string>
     <string name="favorites_menu_title">Избранное</string>
     <string name="categories_menu_title">Категории</string>
-    <string name="share_menu_title">Поделиться</string>
+    <string name="share_menu_title">Оценить нас</string>
     <string name="send_menu_title">Отправить</string>
 </resources>
