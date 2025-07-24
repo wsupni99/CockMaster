@@ -3,8 +3,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-    // alias(libs.plugins.ksp) // УДАЛЯЕМ эту строку
-    id("org.jetbrains.kotlin.kapt") // ДОБАВЛЯЕМ эту строку для Kapt
+    id("org.jetbrains.kotlin.kapt")
 }
 
 android {
@@ -38,7 +37,8 @@ android {
         jvmTarget = "11"
     }
     buildFeatures {
-        viewBinding = true
+        // viewBinding = true
+        dataBinding = true
     }
     
 

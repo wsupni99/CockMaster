@@ -2,28 +2,55 @@ package com.example.myfirstkotlinapp
 
 import android.os.Bundle
 import android.widget.Button
+import android.widget.EditText
+import android.widget.ImageView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.lifecycle.ViewModelProvider
+import coil.load
 import com.example.myfirstkotlinapp.data.Recipe
-import com.example.myfirstkotlinapp.databinding.ActivityAddEditRecipeBinding
+// import com.example.myfirstkotlinapp.databinding.ActivityAddEditRecipeBinding // Удаляем эту строку
 import java.util.UUID
 
 class AddEditRecipeActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivityAddEditRecipeBinding
+    // private lateinit var binding: ActivityAddEditRecipeBinding // Удаляем это объявление
     private lateinit var viewModel: AddEditRecipeViewModel
     private var recipeId: String? = null
-    private var currentRecipe: Recipe? = null // Объявление переменной currentRecipe
+    private var currentRecipe: Recipe? = null
+
+    // Объявляем переменные для Views, которые будут найдены через findViewById
+    private lateinit var editTextRecipeName: EditText
+    private lateinit var editTextImageUrl: EditText
+    private lateinit var editTextRating: EditText
+    private lateinit var editTextCategory: EditText
+    private lateinit var editTextDescription: EditText
+    private lateinit var editTextIngredients: EditText
+    private lateinit var editTextSteps: EditText
+    private lateinit var buttonSaveRecipe: Button
+    private lateinit var imageRecipePreview: ImageView
+    private lateinit var addEditToolbar: Toolbar
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityAddEditRecipeBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        setContentView(R.layout.activity_add_edit_recipe) // Устанавливаем макет
 
-        val toolbar: Toolbar = binding.addEditToolbar
-        setSupportActionBar(toolbar)
+        // Инициализируем Views через findViewById
+        addEditToolbar = findViewById(R.id.addEditToolbar)
+        editTextRecipeName = findViewById(R.id.editTextRecipeName)
+        editTextImageUrl = findViewById(R.id.editTextImageUrl)
+        editTextRating = findViewById(R.id.editTextRating)
+        editTextCategory = findViewById(R.id.editTextCategory)
+        editTextDescription = findViewById(R.id.editTextDescription)
+        editTextIngredients = findViewById(R.id.editTextIngredients)
+        editTextSteps = findViewById(R.id.editTextSteps)
+        buttonSaveRecipe = findViewById(R.id.buttonSaveRecipe)
+        imageRecipePreview = findViewById(R.id.imageRecipePreview)
+
+
+        setSupportActionBar(addEditToolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.setDisplayShowHomeEnabled(true)
 
@@ -36,37 +63,36 @@ class AddEditRecipeActivity : AppCompatActivity() {
             supportActionBar?.title = "Редактировать рецепт"
             viewModel.getRecipe(recipeId!!).observe(this) { recipe ->
                 recipe?.let {
-                    currentRecipe = it // Присвоение значения currentRecipe
-                    fillFormWithRecipe(it)
+                    currentRecipe = it
+                    editTextRecipeName.setText(it.name)
+                    editTextImageUrl.setText(it.imageUrl)
+                    editTextRating.setText(it.rating.toString())
+                    editTextCategory.setText(it.category)
+                    editTextDescription.setText(it.description)
+                    editTextIngredients.setText(it.ingredients.joinToString("\n"))
+                    editTextSteps.setText(it.steps.joinToString("\n"))
+                    if (!it.imageUrl.isNullOrEmpty()) {
+                        imageRecipePreview.load(it.imageUrl)
+                    }
                 }
             }
         } else {
             supportActionBar?.title = "Добавить новый рецепт"
         }
 
-        binding.buttonSaveRecipe.setOnClickListener {
+        buttonSaveRecipe.setOnClickListener {
             saveRecipe()
         }
     }
 
-    private fun fillFormWithRecipe(recipe: Recipe) {
-        binding.editTextRecipeName.setText(recipe.name)
-        binding.editTextImageUrl.setText(recipe.imageUrl)
-        binding.editTextRating.setText(recipe.rating.toString())
-        binding.editTextCategory.setText(recipe.category)
-        binding.editTextDescription.setText(recipe.description)
-        binding.editTextIngredients.setText(recipe.ingredients.joinToString("\n"))
-        binding.editTextSteps.setText(recipe.steps.joinToString("\n"))
-    }
-
     private fun saveRecipe() {
-        val name = binding.editTextRecipeName.text.toString().trim()
-        val imageUrl = binding.editTextImageUrl.text.toString().trim()
-        val ratingString = binding.editTextRating.text.toString().trim()
-        val category = binding.editTextCategory.text.toString().trim()
-        val description = binding.editTextDescription.text.toString().trim()
-        val ingredientsText = binding.editTextIngredients.text.toString().trim()
-        val stepsText = binding.editTextSteps.text.toString().trim()
+        val name = editTextRecipeName.text.toString().trim()
+        val imageUrl = editTextImageUrl.text.toString().trim()
+        val ratingString = editTextRating.text.toString().trim()
+        val category = editTextCategory.text.toString().trim()
+        val description = editTextDescription.text.toString().trim()
+        val ingredientsText = editTextIngredients.text.toString().trim()
+        val stepsText = editTextSteps.text.toString().trim()
 
         if (name.isEmpty() || ratingString.isEmpty() || category.isEmpty() || ingredientsText.isEmpty() || stepsText.isEmpty()) {
             Toast.makeText(this, "Пожалуйста, заполните все обязательные поля.", Toast.LENGTH_SHORT).show()
@@ -91,7 +117,7 @@ class AddEditRecipeActivity : AppCompatActivity() {
             description = if (description.isEmpty()) null else description,
             ingredients = ingredients,
             steps = steps,
-            isFavorite = currentRecipe?.isFavorite ?: false // Используем currentRecipe
+            isFavorite = currentRecipe?.isFavorite ?: false
         )
 
         viewModel.saveRecipe(newRecipe)

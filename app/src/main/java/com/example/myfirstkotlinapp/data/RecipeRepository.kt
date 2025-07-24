@@ -31,4 +31,8 @@ class RecipeRepository(private val recipeDao: RecipeDao) {
     suspend fun getRecipeCount(): Int {
         return recipeDao.getRecipeCount()
     }
+
+    fun getFavoriteRecipes(): Flow<List<Recipe>> {
+        return recipeDao.getFavoriteRecipes()
+    }
 }

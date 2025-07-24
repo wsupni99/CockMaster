@@ -33,4 +33,7 @@ interface RecipeDao {
 
     @Query("SELECT COUNT(*) FROM recipes")
     suspend fun getRecipeCount(): Int
+
+    @Query("SELECT * FROM recipes WHERE isFavorite = 1 ORDER BY name ASC")
+    fun getFavoriteRecipes(): Flow<List<Recipe>>
 }
