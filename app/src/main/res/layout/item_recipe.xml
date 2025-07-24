@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="8dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="4dp">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="8dp">
+
+        <ImageView
+            android:id="@+id/imageViewRecipe"
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:scaleType="centerCrop"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            tools:src="@tools:sample/avatars"
+            android:contentDescription="Изображение рецепта"/>
+
+        <TextView
+            android:id="@+id/textViewRecipeName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="8dp"
+            android:textStyle="bold"
+            android:textSize="18sp"
+            android:textColor="@android:color/black"
+            app:layout_constraintStart_toEndOf="@+id/imageViewRecipe"
+            app:layout_constraintEnd_toStartOf="@+id/imageViewFavorite"
+            app:layout_constraintTop_toTopOf="@+id/imageViewRecipe"
+            tools:text="Название Рецепта" />
+
+        <TextView
+            android:id="@+id/textViewRecipeCategory"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="4dp"
+            android:textSize="14sp"
+            app:layout_constraintStart_toEndOf="@+id/imageViewRecipe"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/textViewRecipeName"
+            tools:text="Категория" />
+
+        <TextView
+            android:id="@+id/textViewRecipeRating"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="8dp"
+            android:drawablePadding="4dp"
+            android:gravity="center_vertical"
+            android:textSize="14sp"
+            app:drawableStartCompat="@drawable/ic_star"
+            app:layout_constraintStart_toEndOf="@+id/imageViewRecipe"
+            app:layout_constraintTop_toBottomOf="@+id/textViewRecipeCategory"
+            tools:text="4.5" />
+
+        <ImageView
+            android:id="@+id/imageViewFavorite"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_favorite_border"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@+id/textViewRecipeName"
+            android:layout_marginEnd="8dp"
+            android:contentDescription="Добавить в избранное" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</com.google.android.material.card.MaterialCardView>

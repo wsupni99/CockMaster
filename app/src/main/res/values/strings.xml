@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MyFirstKotlinApp</string>
+    <string name="app_name_full">Cook Master</string>
+    <string name="enter_name_hint">Введите ваше имя</string>
+    <string name="greet_button_text">Привет!</string>
+    <string name="initial_greeting">Приветствие появится здесь</string>
+    <string name="hello_name">Привет, %1$s!</string>
+    <string name="no_name_entered">Пожалуйста, введите ваше имя.</string>
+
+    <string name="search_text">Искать</string>
+    <string name="favorites_text">Избранное</string>
+    <string name="new_recipes_text">Новые</string>
+    <string name="select_category_text">Выбрать категорию</string>
+    <string name="category_drinks">Напитки</string>
+    <string name="category_main_dishes">Основные блюда</string>
+
+    <string name="navigation_drawer_open">Открыть навигационный ящик</string>
+    <string name="navigation_drawer_close">Закрыть навигационный ящик</string>
+
+    <string name="home_menu_title">Главная</string>
+    <string name="favorites_menu_title">Избранное</string>
+    <string name="categories_menu_title">Категории</string>
+    <string name="share_menu_title">Поделиться</string>
+    <string name="send_menu_title">Отправить</string>
+</resources>
