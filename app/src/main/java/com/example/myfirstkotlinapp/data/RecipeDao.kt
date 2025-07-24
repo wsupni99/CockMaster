@@ -33,4 +33,13 @@ interface RecipeDao {
 
     @Query("SELECT COUNT(*) FROM recipes")
     suspend fun getRecipeCount(): Int
+
+    @Query("SELECT * FROM recipes WHERE isFavorite = 1 ORDER BY name ASC")
+    fun getFavoriteRecipes(): Flow<List<Recipe>>
+
+    @Query("SELECT DISTINCT category FROM recipes ORDER BY category ASC")
+    fun getAllCategories(): Flow<List<String>>
+
+    @Query("SELECT * FROM recipes WHERE category = :categoryName ORDER BY name ASC")
+    fun getRecipesByCategory(categoryName: String): Flow<List<Recipe>>
 }

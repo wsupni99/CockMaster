@@ -1,3 +1,4 @@
+// app/src/main/java/com/example/myfirstkotlinapp/MainViewModel.kt
 package com.example.myfirstkotlinapp
 
 import androidx.lifecycle.LiveData
@@ -6,12 +7,14 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.asLiveData
-import androidx.lifecycle.switchMap
 import androidx.lifecycle.viewModelScope
 import com.example.myfirstkotlinapp.data.Recipe
 import com.example.myfirstkotlinapp.data.RecipeRepository
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.util.UUID
+
+// sealed class RecipeFilter уже определен в RecipeFilter.kt
 
 class MainViewModel(private val repository: RecipeRepository) : ViewModel() {
 
@@ -24,59 +27,61 @@ class MainViewModel(private val repository: RecipeRepository) : ViewModel() {
         insertDummyRecipes() // Вставляем тестовые рецепты при первом запуске ViewModel
     }
 
+    val allCategories: LiveData<List<String>> = repository.getAllCategories().asLiveData()
+
     // LiveData, которая комбинирует поисковый запрос и фильтр
     val filteredRecipes: LiveData<List<Recipe>> = MediatorLiveData<List<Recipe>>().apply {
-        var currentSearchRecipes: LiveData<List<Recipe>>? = null
-        var currentAllRecipes: LiveData<List<Recipe>>? = null
-        var currentFavoriteRecipes: LiveData<List<Recipe>>? = null
+        // Объявите переменную для отслеживания текущего источника LiveData
+        var currentSource: LiveData<List<Recipe>>? = null
 
         // Функция для обновления LiveData на основе текущего состояния
-        fun updateValue() {
+        fun updateSource() {
+            // Удалите предыдущий источник, чтобы избежать утечек памяти и дублирования обновлений
+            currentSource?.let { removeSource(it) }
+
             val query = _searchQuery.value.orEmpty()
             val filter = _filter.value ?: RecipeFilter.ALL
 
-            // Удаляем старые источники, чтобы избежать утечек и дублирования
-            currentSearchRecipes?.let { removeSource(it) }
-            currentAllRecipes?.let { removeSource(it) }
-            currentFavoriteRecipes?.let { removeSource(it) }
-
-            if (query.isNotEmpty()) {
-                currentSearchRecipes = repository.searchRecipes(query).asLiveData()
-                addSource(currentSearchRecipes!!) { recipes ->
-                    value = if (filter == RecipeFilter.FAVORITES) {
-                        recipes?.filter { it.isFavorite }
+            // Определите новый источник LiveData в зависимости от текущего фильтра и поискового запроса
+            val newSource = when (filter) {
+                RecipeFilter.ALL -> {
+                    if (query.isEmpty()) {
+                        repository.getAllRecipes().asLiveData()
                     } else {
-                        recipes
+                        repository.searchRecipes(query).asLiveData()
                     }
                 }
-            } else {
-                when (filter) {
-                    RecipeFilter.ALL -> {
-                        currentAllRecipes = repository.getAllRecipes().asLiveData()
-                        addSource(currentAllRecipes!!) { value = it }
+                RecipeFilter.FAVORITES -> {
+                    if (query.isEmpty()) {
+                        // Используем новую функцию репозитория для получения избранных рецептов
+                        repository.getFavoriteRecipes().asLiveData()
+                    } else {
+                        // Если поиск внутри избранных, сначала ищем по запросу, затем фильтруем по избранному
+                        repository.searchRecipes(query)
+                            .map { list -> list.filter { it.isFavorite } }
+                            .asLiveData()
                     }
-                    RecipeFilter.FAVORITES -> {
-                        currentFavoriteRecipes = repository.getAllRecipes().asLiveData().map { list ->
-                            list.filter { it.isFavorite }
-                        }
-                        addSource(currentFavoriteRecipes!!) { value = it }
+                }
+                is RecipeFilter.CATEGORY -> { // Теперь это работает благодаря sealed class
+                    val category = filter.category // Получаем название категории
+                    if (query.isEmpty()) {
+                        repository.getRecipesByCategory(category).asLiveData() // Используем новый метод репозитория для категории
+                    } else {
+                        // Если поиск внутри категории, сначала ищем по запросу, затем фильтруем по категории
+                        repository.searchRecipes(query)
+                            .map { list -> list.filter { it.category == category } }
+                            .asLiveData()
                     }
                 }
             }
+            // Установите новый источник и добавьте его
+            currentSource = newSource
+            addSource(newSource) { value = it }
         }
 
-        // Наблюдаем за изменениями поискового запроса и фильтра
-        addSource(_searchQuery) { updateValue() }
-        addSource(_filter) { updateValue() }
-    }
-
-
-    // Переключение статуса избранного
-    fun toggleFavoriteStatus(recipe: Recipe) {
-        viewModelScope.launch {
-            val updatedRecipe = recipe.copy(isFavorite = !recipe.isFavorite)
-            repository.updateRecipe(updatedRecipe)
-        }
+        // Добавляем источники для _searchQuery и _filter, чтобы вызывать updateSource при их изменении
+        addSource(_searchQuery) { updateSource() }
+        addSource(_filter) { updateSource() }
     }
 
     fun setSearchQuery(query: String) {
@@ -87,84 +92,158 @@ class MainViewModel(private val repository: RecipeRepository) : ViewModel() {
         _filter.value = filter
     }
 
-    // Определение возможных фильтров
-    enum class RecipeFilter {
-        ALL, FAVORITES
+    // Вспомогательная функция для вставки тестовых данных
+    private fun insertDummyRecipes() {
+        viewModelScope.launch {
+            // Вставляем только если база данных пуста
+            if (repository.getRecipeCount() == 0) {
+                val dummyRecipes = listOf(
+                    Recipe(
+                        id = UUID.randomUUID().toString(), // Генерируем уникальный ID
+                        name = "Узбекский Плов",
+                        category = "Основные блюда",
+                        rating = 4.8f,
+                        imageUrl = "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80",
+                        description = "Традиционный узбекский плов, ароматный и сытный, приготовленный по классическому рецепту.",
+                        ingredients = listOf(
+                            "Рис (длиннозерный) 500 г",
+                            "Баранина (или говядина) 500 г",
+                            "Морковь 500 г",
+                            "Лук репчатый 250 г",
+                            "Растительное масло 150 мл",
+                            "Зира (кумин) 1 ч.л.",
+                            "Барбарис (по желанию) 1 ч.л.",
+                            "Чеснок 1-2 головки",
+                            "Соль по вкусу",
+                            "Черный перец по вкусу"
+                        ),
+                        steps = listOf(
+                            "1. Подготовка: Рис тщательно промыть несколько раз, замочить в теплой воде на 30-60 минут. Мясо нарезать кубиками 2-3 см. Морковь нарезать брусочками, лук полукольцами.",
+                            "2. Жарка: В казане (или толстостенной кастрюле) хорошо разогреть растительное масло. Обжарить мясо до золотистой корочки.",
+                            "3. Добавление овощей: Добавить лук, обжарить до прозрачности. Добавить морковь и жарить, помешивая, 7-10 минут, пока морковь не станет мягкой.",
+                            "4. Зирвак: Влить горячую воду (около 700-800 мл), чтобы она покрыла содержимое. Добавить зиру, барбарис (если используете), соль и перец. Довести до кипения, уменьшить огонь и томить зирвак (основу для плова) 30-40 минут под крышкой.",
+                            "5. Закладка риса: С риса слить воду. Аккуратно выложить рис поверх зирвака, разровнять, не перемешивая. Воткнуть в рис целые головки чеснока (неочищенные, только снять верхний слой шелухи).",
+                            "6. Варка: Добавить кипяток так, чтобы вода покрывала рис на 1-1.5 см. Увеличить огонь, довести до кипения и варить на сильном огне, пока вода почти полностью не испарится с поверхности (появятся \"кратеры\").",
+                            "7. Томление: Уменьшить огонь до минимума, собрать рис горкой к центру, сделать несколько проколов до дна казана. Накрыть казан плотной крышкой и томить плов 20-30 минут до готовности риса.",
+                            "8. Подача: Аккуратно перемешать плов перед подачей. Подавать горячим."
+                        )
+                    ),
+                    Recipe(
+                        id = UUID.randomUUID().toString(), // Генерируем уникальный ID
+                        name = "Паста Карбонара",
+                        category = "Основные блюда",
+                        rating = 4.7f,
+                        imageUrl = "https://images.unsplash.com/photo-1525755662778-989d0524087e?auto=format&fit=crop&w=800&q=80",
+                        description = "Классическая итальянская паста с густым сливочным соусом, беконом и сыром пекорино.",
+                        ingredients = listOf(
+                            "Спагетти 200 г",
+                            "Гуанчиале или бекон 100 г",
+                            "Яичные желтки 2 шт.",
+                            "Целое яйцо 1 шт.",
+                            "Сыр Пекорино Романо (или Пармезан) 50 г, тертый",
+                            "Черный перец свежемолотый по вкусу",
+                            "Соль по вкусу"
+                        ),
+                        steps = listOf(
+                            "1. Отварить пасту: В большой кастрюле вскипятите подсоленную воду. Отварите спагетти до состояния аль денте, следуя инструкциям на упаковке. Перед сливом воды сохраните около 1 стакана (240 мл) воды от варки пасты.",
+                            "2. Приготовить бекон: Пока паста варится, нарежьте гуанчиале (или бекон) небольшими кубиками. Обжарьте на сковороде на среднем огне до хрустящей корочки. Снимите со сковороды и отложите, оставив жир на сковороде.",
+                            "3. Приготовить соус: В миске смешайте яичные желтки, целое яйцо и тертый сыр (Пекорино или Пармезан). Хорошо перемешайте вилкой до получения однородной массы. Добавьте много свежемолотого черного перца.",
+                            "4. Соединить: Переложите отваренную пасту прямо в сковороду с оставшимся жиром от бекона. Добавьте обжаренный бекон. Быстро перемешайте. Постепенно добавляйте немного воды от варки пасты, постоянно помешивая, чтобы паста стала влажной.",
+                            "5. Завершение соуса: Снимите сковороду с огня. Быстро влейте яично-сырную смесь в пасту, активно помешивая щипцами. Добавляйте по одной-две ложки воды от пасты, пока соус не станет кремообразным и не покроет пасту. Важно: сковорода не должна быть слишком горячей, чтобы яйца не свернулись.",
+                            "6. Подача: Сразу же подавайте, посыпав дополнительным тертым сыром и свежемолотым черным перцем."
+                        )
+                    ),
+                    Recipe(
+                        id = UUID.randomUUID().toString(), // Генерируем уникальный ID
+                        name = "Легкий Овощной Салат",
+                        category = "Салаты",
+                        rating = 4.2f,
+                        imageUrl = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1780&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+                        description = "Освежающий и полезный салат из свежих овощей с легкой заправкой.",
+                        ingredients = listOf(
+                            "Помидоры 2 шт.",
+                            "Огурцы 2 шт.",
+                            "Перец болгарский 1 шт.",
+                            "Листья салата 1 пучок",
+                            "Красный лук 1/2 шт.",
+                            "Оливковое масло 3 ст.л.",
+                            "Лимонный сок 1 ст.л.",
+                            "Соль по вкусу",
+                            "Черный перец по вкусу"
+                        ),
+                        steps = listOf(
+                            "1. Подготовить овощи: Помидоры, огурцы и болгарский перец нарезать кубиками. Красный лук нарезать тонкими полукольцами. Листья салата порвать руками или нарезать крупно.",
+                            "2. Смешать: Все нарезанные овощи и листья салата выложить в большую салатницу.",
+                            "3. Приготовить заправку: В небольшой миске смешать оливковое масло, лимонный сок, соль и черный перец. Хорошо перемешать.",
+                            "4. Заправить: Полить салат приготовленной заправкой и аккуратно перемешать.",
+                            "5. Подача: Подавать сразу."
+                        )
+                    ),
+                    Recipe(
+                        id = UUID.randomUUID().toString(), // Генерируем уникальный ID
+                        name = "Яблочный Пирог (Шарлотка)",
+                        category = "Выпечка",
+                        rating = 4.5f,
+                        imageUrl = "https://i.pinimg.com/1200x/26/f3/9f/26f39f277acb10efa58ee4a0cc566952.jpg",
+                        description = "Классический яблочный пирог - простой и вкусный десерт к чаю.",
+                        ingredients = listOf(
+                            "Яблоки 3-4 шт. (средних)",
+                            "Яйца 3 шт.",
+                            "Сахар 150 г",
+                            "Пшеничная мука 150 г",
+                            "Разрыхлитель 1 ч.л.",
+                            "Ванильный сахар 1 ч.л. (по желанию)",
+                            "Сливочное масло для смазывания формы"
+                        ),
+                        steps = listOf(
+                            "1. Подготовка яблок: Яблоки вымыть, очистить от кожуры и сердцевины, нарезать небольшими дольками или кубиками.",
+                            "2. Приготовление теста: В глубокой миске взбить яйца с сахаром и ванильным сахаром до пышной светлой массы. Постепенно добавить просеянную муку с разрыхлителем, аккуратно перемешивая лопаткой до однородности.",
+                            "3. Соединение: Добавить нарезанные яблоки в тесто и аккуратно перемешать, чтобы яблоки равномерно распределились.",
+                            "4. Выпекание: Форму для выпечки (диаметром 20-22 см) смазать сливочным маслом и присыпать мукой. Вылить тесто в форму. Выпекать в разогретой до 180°C духовке 40-50 минут, или до золотистого цвета и готовности (проверить зубочисткой).",
+                            "5. Охлаждение и подача: Дать пирогу немного остыть в форме, затем вынуть и посыпать сахарной пудрой по желанию. Подавать теплым или холодным."
+                        )
+                    ),
+                    Recipe(
+                        id = UUID.randomUUID().toString(), // Генерируем уникальный ID
+                        name = "Тыквенный Суп-Пюре",
+                        category = "Супы",
+                        rating = 4.6f,
+                        imageUrl = "https://i.pinimg.com/736x/d8/c7/72/d8c77267b480cfb3c83212142a33be40.jpg",
+                        description = "Нежный и ароматный тыквенный суп-пюре, идеален для осени.",
+                        ingredients = listOf(
+                            "Тыква 500 г",
+                            "Морковь 1 шт.",
+                            "Лук репчатый 1 шт.",
+                            "Чеснок 2 зубчика",
+                            "Овощной бульон 500 мл",
+                            "Сливки (10-20%) 100 мл (по желанию)",
+                            "Оливковое масло 2 ст.л.",
+                            "Имбирь свежий 1 см (по желанию)",
+                            "Соль по вкусу",
+                            "Черный перец по вкусу",
+                            "Зелень для подачи"
+                        ),
+                        steps = listOf(
+                            "1. Подготовка овощей: Тыкву очистить от кожуры и семян, нарезать кубиками. Морковь, лук и чеснок также очистить и нарезать крупно. Имбирь натереть на мелкой терке.",
+                            "2. Обжарка: В кастрюле с толстым дном разогреть оливковое масло. Обжарить лук до мягкости, затем добавить морковь, тыкву, чеснок и имбирь. Обжаривать, помешивая, 5-7 минут.",
+                            "3. Варка: Влить овощной бульон, довести до кипения. Уменьшить огонь, накрыть крышкой и варить 15-20 минут, пока овощи не станут очень мягкими.",
+                            "4. Пюрирование: Снять кастрюлю с огня. Измельчить суп погружным блендером до однородной консистенции. При необходимости, протереть через сито для большей гладкости.",
+                            "5. Завершение: Вернуть суп на плиту. Добавить сливки (если используете), соль и перец по вкусу. Прогреть, не доводя до кипения. Если суп слишком густой, можно добавить еще немного бульона или воды.",
+                            "6. Подача: Подавать горячим, украсив зеленью или тыквенными семечками."
+                        )
+                    )
+                )
+                dummyRecipes.forEach { recipe ->
+                    repository.insertRecipe(recipe)
+                }
+            }
+        }
     }
 
-
-    private fun insertDummyRecipes() = viewModelScope.launch {
-        if (repository.getRecipeCount() == 0) {
-            val dummyRecipes = listOf(
-                Recipe(
-                    id = UUID.randomUUID().toString(),
-                    name = "Кофе",
-                    category = "Напитки",
-                    rating = 4.0f,
-                    imageUrl = "https://cdn.pixabay.com/photo/2017/05/12/08/29/coffee-2299883_1280.jpg",
-                    description = "Ароматный утренний кофе.",
-                    ingredients = listOf("Кофе молотый", "Вода", "Сахар"),
-                    steps = listOf("Заварить кофе", "Добавить сахар"),
-                    isFavorite = false
-                ),
-                Recipe(
-                    id = UUID.randomUUID().toString(),
-                    name = "Горячий шоколад",
-                    category = "Напитки",
-                    rating = 4.5f,
-                    imageUrl = "https://cdn.pixabay.com/photo/2017/01/17/10/50/hot-chocolate-1986427_1280.jpg",
-                    description = "Насыщенный горячий шоколад для уютных вечеров.",
-                    ingredients = listOf("Какао порошок", "Молоко", "Сахар", "Шоколад"),
-                    steps = listOf("Нагреть молоко", "Растворить какао", "Добавить сахар и шоколад"),
-                    isFavorite = false
-                ),
-                Recipe(
-                    id = UUID.randomUUID().toString(),
-                    name = "Рис",
-                    category = "Основные блюда",
-                    rating = 3.0f,
-                    imageUrl = "https://cdn.pixabay.com/photo/2017/06/07/19/08/rice-2381283_1280.jpg",
-                    description = "Простой вареный рис как гарнир.",
-                    ingredients = listOf("Рис 300 г", "Вода 700 мл", "Соль 1/4 ч.л."),
-                    steps = listOf(
-                        "Вскипятить воду 700 мл",
-                        "Добавить Рис 300 г и Соль 1/4 ч.л.",
-                        "Варить до готовности 25 мин"
-                    ),
-                    isFavorite = false
-                ),
-                Recipe(
-                    id = UUID.randomUUID().toString(),
-                    name = "Тыквенный суп",
-                    category = "Супы",
-                    rating = 4.7f,
-                    imageUrl = "https://cdn.pixabay.com/photo/2016/01/29/01/24/pumpkin-soup-1166417_1280.jpg",
-                    description = "Кремовый и ароматный суп из тыквы.",
-                    ingredients = listOf(
-                        "Тыква 500 г",
-                        "Морковь 1 шт",
-                        "Лук 1 шт",
-                        "Чеснок 2 зубчика",
-                        "Имбирь 1 см",
-                        "Овощной бульон 500 мл",
-                        "Сливки (по желанию) 100 мл",
-                        "Соль, перец по вкусу",
-                        "Оливковое масло"
-                    ),
-                    steps = listOf(
-                        "1. Подготовка овощей: Тыкву очистить от кожуры и семян, нарезать кубиками. Морковь, лук и чеснок также очистить и нарезать крупно. Имбирь натереть на мелкой терке.",
-                        "2. Обжарка: В кастрюле с толстым дном разогреть оливковое масло. Обжарить лук до мягкости, затем добавить морковь, тыкву, чеснок и имбирь. Обжаривать, помешивая, 5-7 минут.",
-                        "3. Варка: Влить овощной бульон, довести до кипения. Уменьшить огонь, накрыть крышкой и варить 15-20 минут, пока овощи не станут очень мягкими.",
-                        "4. Пюрирование: Снять кастрюлю с огня. Измельчить суп погружным блендером до однородной консистенции. При необходимости, протереть через сито для большей гладкости.",
-                        "5. Завершение: Вернуть суп на плиту. Добавить сливки (если используете), соль и перец по вкусу. Прогреть, не доводя до кипения. Если суп слишком густой, можно добавить еще немного бульона или воды.",
-                        "6. Подача: Подавать горячим, украсив зеленью или тыквенными семечками."
-                    ),
-                    isFavorite = true // Сделаем один избранным по умолчанию
-                )
-            )
-            dummyRecipes.forEach { recipe ->
-                repository.insertRecipe(recipe)
-            }
+    fun toggleFavoriteStatus(recipe: Recipe) {
+        viewModelScope.launch {
+            val updatedRecipe = recipe.copy(isFavorite = !recipe.isFavorite)
+            repository.updateRecipe(updatedRecipe)
         }
     }
 }

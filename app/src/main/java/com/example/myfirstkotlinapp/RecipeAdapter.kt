@@ -1,3 +1,4 @@
+// RecipeAdapter.kt
 package com.example.myfirstkotlinapp
 
 import android.view.LayoutInflater
@@ -11,7 +12,7 @@ import com.example.myfirstkotlinapp.databinding.ItemRecipeBinding
 
 class RecipeAdapter(
     private val onClick: (Recipe) -> Unit,
-    private val onFavoriteClick: (Recipe) -> Unit
+    private val onFavoriteClick: (Recipe) -> Unit // Убедитесь, что этот лямбда-функция передается
 ) : ListAdapter<Recipe, RecipeAdapter.RecipeViewHolder>(RecipeDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecipeViewHolder {
@@ -27,7 +28,7 @@ class RecipeAdapter(
     class RecipeViewHolder(
         private val binding: ItemRecipeBinding,
         private val onClick: (Recipe) -> Unit,
-        private val onFavoriteClick: (Recipe) -> Unit
+        private val onFavoriteClick: (Recipe) -> Unit // Принимаем лямбду для обработки избранного
     ) : RecyclerView.ViewHolder(binding.root) {
 
         fun bind(recipe: Recipe) {
@@ -48,6 +49,7 @@ class RecipeAdapter(
                 )
 
                 root.setOnClickListener { onClick(recipe) }
+                // Вот здесь мы используем onFavoriteClick
                 imageViewFavorite.setOnClickListener { onFavoriteClick(recipe) }
             }
         }

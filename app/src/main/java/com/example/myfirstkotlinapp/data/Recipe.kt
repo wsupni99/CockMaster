@@ -13,5 +13,5 @@ data class Recipe(
     val description: String?,
     val ingredients: List<String>,
     val steps: List<String>,
-    val isFavorite: Boolean = false // Добавлено поле для избранного
+    val isFavorite: Boolean = false
 )
